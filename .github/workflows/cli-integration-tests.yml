@@ -1,0 +1,269 @@
+# This workflow runs jfrog-cli integration tests against changes in jfrog-cli-artifactory.
+# It allows validating that changes to this module don't break the CLI without creating a PR on jfrog-cli.
+#
+# How it works:
+# 1. Clones jfrog-cli repository
+# 2. Replaces the jfrog-cli-artifactory dependency with the PR branch using go mod replace
+# 3. Installs a local Artifactory instance
+# 4. Runs the specified CLI integration tests
+#
+# Trigger: 
+# - Automatically on every push to a PR branch targeting master/main
+# - On push to master
+# - Manual dispatch for specific test suites
+name: CLI Integration Tests
+on:
+  workflow_dispatch:
+    inputs:
+      test_suite:
+        description: 'Test suite to run (artifactory, npm, maven, gradle, go, conan, helm, nuget, pip, docker)'
+        required: false
+        default: 'artifactory'
+        type: choice
+        options:
+          - artifactory
+          - npm
+          - maven
+          - gradle
+          - go
+          - conan
+          - helm
+          - nuget
+          - pip
+          - docker
+      jfrog_cli_branch:
+        description: 'jfrog-cli branch to test against (default: master)'
+        required: false
+        default: 'master'
+        type: string
+  push:
+    branches:
+      - "main"
+  # Triggers on every push to PR branches targeting master/main
+  pull_request:
+    branches:
+      - "main"
+
+# Ensures that only the latest commit is running for each PR at a time.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  CLI-Integration-Tests:
+    name: CLI ${{ matrix.suite }} Tests (${{ matrix.os.name }})
+    # Runs on: manual dispatch, push to master/main, or any push to a PR branch
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: ${{ github.event_name == 'workflow_dispatch' && fromJSON(format('["{0}"]', inputs.test_suite)) || fromJSON('["artifactory"]') }}
+        os:
+          - name: ubuntu
+            version: 24.04
+          # Uncomment below to enable Windows/macOS testing
+          # - name: windows
+          #   version: 2022
+          # - name: macos
+          #   version: 14
+    runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
+    env:
+      JFROG_CLI_LOG_LEVEL: DEBUG
+      GOPROXY: direct
+    steps:
+      - name: Checkout jfrog-cli-artifactory (this repo - your PR branch)
+        uses: actions/checkout@v5
+        with:
+          # For pull_request events, this checks out the PR head (your changes)
+          # For push events, this checks out the pushed commit
+          path: jfrog-cli-artifactory
+
+      - name: Checkout jfrog-cli
+        uses: actions/checkout@v5
+        with:
+          repository: jfrog/jfrog-cli
+          ref: ${{ inputs.jfrog_cli_branch || 'master' }}
+          path: jfrog-cli
+
+      - name: Setup FastCI
+        uses: jfrog-fastci/fastci@v0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          fastci_otel_token: ${{ secrets.FASTCI_TOKEN }}
+
+      - name: Setup Go with cache
+        uses: jfrog/.github/actions/install-go-with-cache@main
+
+      # Setup tools based on test suite
+      - name: Install npm
+        if: matrix.suite == 'npm'
+        uses: actions/setup-node@v5
+        with:
+          node-version: "16"
+
+      - name: Setup Python3
+        if: matrix.suite == 'pip' || matrix.suite == 'conan'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install pipenv & poetry
+        if: matrix.suite == 'pip'
+        run: python -m pip install pipenv poetry
+
+      - name: Install Conan
+        if: matrix.suite == 'conan'
+        uses: turtlebrowser/get-conan@main
+        with:
+          version: '2.10.2'
+
+      - name: Install Helm
+        if: matrix.suite == 'helm'
+        uses: azure/setup-helm@v4
+        with:
+          version: 'latest'
+
+      - name: Install NuGet 6.x
+        if: matrix.suite == 'nuget'
+        uses: nuget/setup-nuget@v2
+        with:
+          nuget-version: 6.x
+
+      - name: Install dotnet 8.x
+        if: matrix.suite == 'nuget'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+
+      - name: Install Mono on Ubuntu (for NuGet)
+        if: matrix.suite == 'nuget' && matrix.os.name == 'ubuntu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apt-transport-https dirmngr gnupg ca-certificates
+          sudo apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF
+          echo "deb https://download.mono-project.com/repo/ubuntu stable-focal main" | sudo tee /etc/apt/sources.list.d/mono-official-stable.list
+          sudo apt-get update
+          sudo apt-get install -y mono-complete
+
+      - name: Setup Java (for Maven/Gradle)
+        if: matrix.suite == 'maven' || matrix.suite == 'gradle'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'corretto'
+          java-version: '17'
+
+      # Replace jfrog-cli-artifactory dependency with the PR version
+      - name: Replace jfrog-cli-artifactory dependency
+        working-directory: jfrog-cli
+        run: |
+          echo "Replacing jfrog-cli-artifactory with local version from PR..."
+          
+          # Get the absolute path to the checked out jfrog-cli-artifactory
+          ARTIFACTORY_PATH=$(cd ../jfrog-cli-artifactory && pwd)
+          
+          # Add replace directive to go.mod
+          echo "" >> go.mod
+          echo "replace github.com/jfrog/jfrog-cli-artifactory => ${ARTIFACTORY_PATH}" >> go.mod
+          
+          echo "Updated go.mod with replace directive:"
+          tail -5 go.mod
+          
+          # Update dependencies
+          go mod tidy
+
+      - name: Verify dependency replacement
+        working-directory: jfrog-cli
+        run: |
+          echo "Verifying go.mod..."
+          cat go.mod | grep -A2 "jfrog-cli-artifactory" || echo "Dependency found"
+          echo ""
+          echo "Running go mod graph for jfrog-cli-artifactory..."
+          go mod graph | grep "jfrog-cli-artifactory" | head -5 || echo "Dependency in graph"
+
+      - name: Install local Artifactory
+        uses: jfrog/.github/actions/install-local-artifactory@main
+        with:
+          RTLIC: ${{ secrets.RTLIC }}
+          RT_CONNECTION_TIMEOUT_SECONDS: '1200'
+
+      - name: Run CLI Integration Tests
+        working-directory: jfrog-cli
+        env:
+          YARN_IGNORE_NODE: 1
+        run: |
+          echo "Running ${{ matrix.suite }} tests..."
+          go test -v github.com/jfrog/jfrog-cli --timeout 0 \
+            --test.${{ matrix.suite }} \
+            --jfrog.url=http://127.0.0.1:8082 \
+            --jfrog.adminToken=${{ env.JFROG_TESTS_LOCAL_ACCESS_TOKEN }} \
+            --ci.runId=${{ runner.os }}-${{ matrix.suite }}-artifactory-pr
+
+  # Optional: Run multiple test suites in parallel on push to master/main
+  CLI-Full-Integration-Tests:
+    name: Full CLI ${{ matrix.suite }} Tests (${{ matrix.os.name }})
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    needs: CLI-Integration-Tests
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [npm, maven, gradle]
+        os:
+          - name: ubuntu
+            version: 24.04
+    runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
+    env:
+      JFROG_CLI_LOG_LEVEL: DEBUG
+      GOPROXY: direct
+    steps:
+      - name: Checkout jfrog-cli-artifactory (this repo)
+        uses: actions/checkout@v5
+        with:
+          path: jfrog-cli-artifactory
+
+      - name: Checkout jfrog-cli
+        uses: actions/checkout@v5
+        with:
+          repository: jfrog/jfrog-cli
+          ref: master
+          path: jfrog-cli
+
+      - name: Setup Go with cache
+        uses: jfrog/.github/actions/install-go-with-cache@main
+
+      - name: Install npm
+        if: matrix.suite == 'npm'
+        uses: actions/setup-node@v5
+        with:
+          node-version: "16"
+
+      - name: Setup Java
+        if: matrix.suite == 'maven' || matrix.suite == 'gradle'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'corretto'
+          java-version: '17'
+
+      - name: Replace jfrog-cli-artifactory dependency
+        working-directory: jfrog-cli
+        run: |
+          ARTIFACTORY_PATH=$(cd ../jfrog-cli-artifactory && pwd)
+          echo "" >> go.mod
+          echo "replace github.com/jfrog/jfrog-cli-artifactory => ${ARTIFACTORY_PATH}" >> go.mod
+          go mod tidy
+
+      - name: Install local Artifactory
+        uses: jfrog/.github/actions/install-local-artifactory@main
+        with:
+          RTLIC: ${{ secrets.RTLIC }}
+          RT_CONNECTION_TIMEOUT_SECONDS: '1200'
+
+      - name: Run CLI Integration Tests
+        working-directory: jfrog-cli
+        env:
+          YARN_IGNORE_NODE: 1
+        run: |
+          go test -v github.com/jfrog/jfrog-cli --timeout 0 \
+            --test.${{ matrix.suite }} \
+            --jfrog.url=http://127.0.0.1:8082 \
+            --jfrog.adminToken=${{ env.JFROG_TESTS_LOCAL_ACCESS_TOKEN }} \
+            --ci.runId=${{ runner.os }}-${{ matrix.suite }}-artifactory-master
+
