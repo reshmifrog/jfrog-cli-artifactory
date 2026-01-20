@@ -11,14 +11,12 @@ on:
     types: [labeled]
     branches:
       - main
-      - master
   # Temporary: Using pull_request to test before merging to main
   # This runs the workflow from the PR branch
   pull_request:
     types: [opened, synchronize, reopened, labeled]
     branches:
       - main
-      - master
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}-${{ github.ref }}
