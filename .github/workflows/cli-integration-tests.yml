@@ -1,21 +1,18 @@
 # ============================================================================
-# CLI Integration Tests Trigger
+# CLI Integration Tests
 # ============================================================================
-# 
-# This workflow triggers jfrog-cli's integration tests using your PR changes.
-# It reads the replace directives from your go.mod and passes them to the
-# jfrog-cli reusable workflow.
+#
+# This workflow runs jfrog-cli integration tests using your jfrog-cli-artifactory
+# changes WITHOUT creating a PR on jfrog-cli.
 #
 # How it works:
-# 1. Detects replace directives in your jfrog-cli-artifactory go.mod
-# 2. Calls jfrog-cli's reusable integration test workflow
-# 3. The jfrog-cli workflow uses YOUR code via the replace directives
-# 4. Results appear directly in this PR
+# 1. Checkout your jfrog-cli-artifactory PR code
+# 2. Checkout jfrog-cli from master
+# 3. Detect replace directives in your go.mod (for build-info-go, client-go, cli-core)
+# 4. Add replace directives to jfrog-cli's go.mod pointing to your code
+# 5. Run the same tests that jfrog-cli runs
 #
-# No PRs are created on jfrog-cli - all testing happens here!
-#
-# Requirements:
-# - Add the "safe to test" label to trigger the tests
+# Trigger: Add "safe to test" label to your PR
 #
 # ============================================================================
 
@@ -23,27 +20,15 @@ name: CLI Integration Tests
 
 on:
   workflow_dispatch:
-    inputs:
-      test_suite:
-        description: 'Test suite to run'
-        required: false
-        default: 'artifactory'
-        type: choice
-        options:
-          - artifactory
-          - npm
-          - maven
-          - gradle
-          - go
-          - conan
-          - helm
-          - nuget
-          - pip
-  pull_request_target:
+  push:
     branches:
       - main
       - master
-    types: [labeled, opened, synchronize, reopened]
+  pull_request_target:
+    types: [labeled]
+    branches:
+      - main
+      - master
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}-${{ github.ref }}
@@ -51,27 +36,37 @@ concurrency:
 
 jobs:
   # ============================================================================
-  # Job 1: Detect replace directives from go.mod
+  # Remove the "safe to test" label after triggering
   # ============================================================================
-  detect-replaces:
-    name: Detect Replace Directives
-    # Only run if:
-    # - workflow_dispatch (manual trigger), OR
-    # - PR has the "safe to test" label
-    if: >
-      github.event_name == 'workflow_dispatch' ||
-      contains(github.event.pull_request.labels.*.name, 'safe to test')
+  Remove-Label:
+    if: contains(github.event.pull_request.labels.*.name, 'safe to test')
+    name: Remove label
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove 'safe to test'
+        uses: actions-ecosystem/action-remove-labels@v1
+        with:
+          labels: "safe to test"
+
+  # ============================================================================
+  # Detect replace directives from jfrog-cli-artifactory's go.mod
+  # ============================================================================
+  Detect-Replaces:
+    name: Detect Dependencies
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'safe to test')
     runs-on: ubuntu-latest
     outputs:
-      artifactory_replace: ${{ steps.detect.outputs.artifactory_replace }}
-      build_info_replace: ${{ steps.detect.outputs.build_info_replace }}
-      client_go_replace: ${{ steps.detect.outputs.client_go_replace }}
-      cli_core_replace: ${{ steps.detect.outputs.cli_core_replace }}
+      build_info_go_repo: ${{ steps.detect.outputs.build_info_go_repo }}
+      build_info_go_ref: ${{ steps.detect.outputs.build_info_go_ref }}
+      client_go_repo: ${{ steps.detect.outputs.client_go_repo }}
+      client_go_ref: ${{ steps.detect.outputs.client_go_ref }}
+      cli_core_repo: ${{ steps.detect.outputs.cli_core_repo }}
+      cli_core_ref: ${{ steps.detect.outputs.cli_core_ref }}
     steps:
       - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v5
         with:
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Detect replace directives
@@ -81,15 +76,18 @@ jobs:
           echo "Parsing go.mod for replace directives..."
           echo "============================================"
           
-          # Function to extract replace target
-          # Input: "github.com/jfrog/xxx => github.com/user/xxx v0.0.0-..."
-          # Output: "user/xxx v0.0.0-..."
+          # Function to extract repo and ref from replace directive
+          # Example: replace github.com/jfrog/build-info-go => github.com/reshmifrog/build-info-go v0.0.0-20260119-abc123
           extract_replace() {
             local module=$1
             local line=$(grep "^replace github.com/jfrog/$module " go.mod 2>/dev/null | head -1)
             if [ -n "$line" ]; then
-              # Extract the part after "=> github.com/"
-              echo "$line" | sed -n 's/.*=> github.com\/\(.*\)/\1/p'
+              # Extract: reshmifrog/build-info-go v0.0.0-20260119-abc123
+              local target=$(echo "$line" | sed -n 's/.*=> github.com\/\(.*\)/\1/p')
+              # Split into repo and ref
+              local repo=$(echo "$target" | awk '{print $1}')
+              local ref=$(echo "$target" | awk '{print $2}')
+              echo "${repo}|${ref}"
             fi
           }
           
@@ -98,45 +96,45 @@ jobs:
           grep "^replace " go.mod || echo "(no replace directives found)"
           echo ""
           
-          # Always set artifactory replace to this PR
-          # Format: owner/repo v0.0.0-timestamp-commit
-          PR_OWNER="${{ github.event.pull_request.head.repo.owner.login || github.repository_owner }}"
-          PR_REPO="jfrog-cli-artifactory"
-          COMMIT_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
-          SHORT_SHA="${COMMIT_SHA:0:12}"
-          TIMESTAMP=$(date -u +%Y%m%d%H%M%S)
-          
-          ARTIFACTORY_REPLACE="${PR_OWNER}/${PR_REPO} v0.0.0-${TIMESTAMP}-${SHORT_SHA}"
-          echo "artifactory_replace=${ARTIFACTORY_REPLACE}" >> $GITHUB_OUTPUT
-          echo "✅ jfrog-cli-artifactory => ${ARTIFACTORY_REPLACE}"
-          
-          # Check for build-info-go replace
+          # Check for build-info-go
           BUILD_INFO=$(extract_replace "build-info-go")
           if [ -n "$BUILD_INFO" ]; then
-            echo "build_info_replace=${BUILD_INFO}" >> $GITHUB_OUTPUT
-            echo "✅ build-info-go => ${BUILD_INFO}"
+            REPO=$(echo "$BUILD_INFO" | cut -d'|' -f1)
+            REF=$(echo "$BUILD_INFO" | cut -d'|' -f2)
+            echo "build_info_go_repo=${REPO}" >> $GITHUB_OUTPUT
+            echo "build_info_go_ref=${REF}" >> $GITHUB_OUTPUT
+            echo "✅ build-info-go => ${REPO} @ ${REF}"
           else
-            echo "build_info_replace=" >> $GITHUB_OUTPUT
+            echo "build_info_go_repo=" >> $GITHUB_OUTPUT
+            echo "build_info_go_ref=" >> $GITHUB_OUTPUT
             echo "⏭️  build-info-go: using default"
           fi
           
-          # Check for jfrog-client-go replace
+          # Check for jfrog-client-go
           CLIENT_GO=$(extract_replace "jfrog-client-go")
           if [ -n "$CLIENT_GO" ]; then
-            echo "client_go_replace=${CLIENT_GO}" >> $GITHUB_OUTPUT
-            echo "✅ jfrog-client-go => ${CLIENT_GO}"
+            REPO=$(echo "$CLIENT_GO" | cut -d'|' -f1)
+            REF=$(echo "$CLIENT_GO" | cut -d'|' -f2)
+            echo "client_go_repo=${REPO}" >> $GITHUB_OUTPUT
+            echo "client_go_ref=${REF}" >> $GITHUB_OUTPUT
+            echo "✅ jfrog-client-go => ${REPO} @ ${REF}"
           else
-            echo "client_go_replace=" >> $GITHUB_OUTPUT
+            echo "client_go_repo=" >> $GITHUB_OUTPUT
+            echo "client_go_ref=" >> $GITHUB_OUTPUT
             echo "⏭️  jfrog-client-go: using default"
           fi
           
-          # Check for jfrog-cli-core replace
+          # Check for jfrog-cli-core
           CLI_CORE=$(extract_replace "jfrog-cli-core")
           if [ -n "$CLI_CORE" ]; then
-            echo "cli_core_replace=${CLI_CORE}" >> $GITHUB_OUTPUT
-            echo "✅ jfrog-cli-core => ${CLI_CORE}"
+            REPO=$(echo "$CLI_CORE" | cut -d'|' -f1)
+            REF=$(echo "$CLI_CORE" | cut -d'|' -f2)
+            echo "cli_core_repo=${REPO}" >> $GITHUB_OUTPUT
+            echo "cli_core_ref=${REF}" >> $GITHUB_OUTPUT
+            echo "✅ jfrog-cli-core => ${REPO} @ ${REF}"
           else
-            echo "cli_core_replace=" >> $GITHUB_OUTPUT
+            echo "cli_core_repo=" >> $GITHUB_OUTPUT
+            echo "cli_core_ref=" >> $GITHUB_OUTPUT
             echo "⏭️  jfrog-cli-core: using default"
           fi
           
@@ -146,25 +144,946 @@ jobs:
           echo "============================================"
 
   # ============================================================================
-  # Job 2: Call jfrog-cli's reusable integration test workflow
+  # Artifactory Tests
   # ============================================================================
-  run-integration-tests:
-    name: Run Integration Tests (${{ matrix.suite }})
-    needs: detect-replaces
+  Artifactory-Tests:
+    name: Artifactory ${{ matrix.suite }} (${{ matrix.os.name }})
+    needs: Detect-Replaces
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'safe to test')
     strategy:
       fail-fast: false
       matrix:
-        suite:
-          - artifactory
-          - npm
-          - maven
-          - gradle
-    # Using your forked repo for testing - change to jfrog/jfrog-cli when ready
-    uses: reshmifrog/jfrog-cli/.github/workflows/integration-tests-reusable.yml@reusable-integration-tests
-    with:
-      test_suite: ${{ matrix.suite }}
-      artifactory_replace: ${{ needs.detect-replaces.outputs.artifactory_replace }}
-      build_info_replace: ${{ needs.detect-replaces.outputs.build_info_replace }}
-      client_go_replace: ${{ needs.detect-replaces.outputs.client_go_replace }}
-      cli_core_replace: ${{ needs.detect-replaces.outputs.cli_core_replace }}
-    secrets: inherit
+        suite: [artifactory, artifactoryProject]
+        os:
+          - name: ubuntu
+            version: 24.04
+    runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
+    env:
+      JFROG_CLI_LOG_LEVEL: DEBUG
+      GOPROXY: direct
+    steps:
+      - name: Checkout jfrog-cli-artifactory
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: jfrog-cli-artifactory
+
+      - name: Checkout jfrog-cli
+        uses: actions/checkout@v5
+        with:
+          repository: jfrog/jfrog-cli
+          ref: master
+          path: jfrog-cli
+
+      - name: Checkout build-info-go (if needed)
+        if: needs.Detect-Replaces.outputs.build_info_go_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.build_info_go_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.build_info_go_ref }}
+          path: build-info-go
+
+      - name: Checkout jfrog-client-go (if needed)
+        if: needs.Detect-Replaces.outputs.client_go_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.client_go_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.client_go_ref }}
+          path: jfrog-client-go
+
+      - name: Checkout jfrog-cli-core (if needed)
+        if: needs.Detect-Replaces.outputs.cli_core_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.cli_core_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.cli_core_ref }}
+          path: jfrog-cli-core
+
+      - name: Setup Go with cache
+        uses: jfrog/.github/actions/install-go-with-cache@main
+
+      - name: Add replace directives
+        run: |
+          cd jfrog-cli
+          
+          # Always add jfrog-cli-artifactory replace
+          echo "replace github.com/jfrog/jfrog-cli-artifactory => ../jfrog-cli-artifactory" >> go.mod
+          echo "✅ Added replace: jfrog-cli-artifactory => ../jfrog-cli-artifactory"
+          
+          # Add build-info-go if checked out
+          if [ -d "../build-info-go" ]; then
+            echo "replace github.com/jfrog/build-info-go => ../build-info-go" >> go.mod
+            echo "✅ Added replace: build-info-go => ../build-info-go"
+          fi
+          
+          # Add jfrog-client-go if checked out
+          if [ -d "../jfrog-client-go" ]; then
+            echo "replace github.com/jfrog/jfrog-client-go => ../jfrog-client-go" >> go.mod
+            echo "✅ Added replace: jfrog-client-go => ../jfrog-client-go"
+          fi
+          
+          # Add jfrog-cli-core if checked out
+          if [ -d "../jfrog-cli-core" ]; then
+            echo "replace github.com/jfrog/jfrog-cli-core/v2 => ../jfrog-cli-core" >> go.mod
+            echo "✅ Added replace: jfrog-cli-core => ../jfrog-cli-core"
+          fi
+          
+          echo ""
+          echo "Final go.mod (last 10 lines):"
+          tail -10 go.mod
+          
+          go mod tidy
+
+      - name: Install local Artifactory
+        uses: jfrog/.github/actions/install-local-artifactory@main
+        with:
+          RTLIC: ${{ secrets.RTLIC }}
+          RT_CONNECTION_TIMEOUT_SECONDS: '1200'
+
+      - name: Run Artifactory tests
+        if: matrix.suite == 'artifactory'
+        working-directory: jfrog-cli
+        run: go test -v github.com/jfrog/jfrog-cli --timeout 0 --test.artifactory --jfrog.url=http://127.0.0.1:8082 --jfrog.adminToken=${{ env.JFROG_TESTS_LOCAL_ACCESS_TOKEN }}
+
+      - name: Run Artifactory Project tests
+        if: matrix.suite == 'artifactoryProject'
+        working-directory: jfrog-cli
+        run: go test -v github.com/jfrog/jfrog-cli --timeout 0 --test.artifactoryProject --ci.runId=${{ runner.os }}-${{ matrix.suite }}
+
+  # ============================================================================
+  # npm Tests
+  # ============================================================================
+  npm-Tests:
+    name: npm (${{ matrix.os.name }})
+    needs: Detect-Replaces
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'safe to test')
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - name: ubuntu
+            version: 24.04
+    runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
+    env:
+      JFROG_CLI_LOG_LEVEL: DEBUG
+      GOPROXY: direct
+    steps:
+      - name: Checkout jfrog-cli-artifactory
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: jfrog-cli-artifactory
+
+      - name: Checkout jfrog-cli
+        uses: actions/checkout@v5
+        with:
+          repository: jfrog/jfrog-cli
+          ref: master
+          path: jfrog-cli
+
+      - name: Checkout build-info-go (if needed)
+        if: needs.Detect-Replaces.outputs.build_info_go_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.build_info_go_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.build_info_go_ref }}
+          path: build-info-go
+
+      - name: Checkout jfrog-client-go (if needed)
+        if: needs.Detect-Replaces.outputs.client_go_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.client_go_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.client_go_ref }}
+          path: jfrog-client-go
+
+      - name: Checkout jfrog-cli-core (if needed)
+        if: needs.Detect-Replaces.outputs.cli_core_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.cli_core_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.cli_core_ref }}
+          path: jfrog-cli-core
+
+      - name: Install npm
+        uses: actions/setup-node@v5
+        with:
+          node-version: "16"
+
+      - name: Setup Go with cache
+        uses: jfrog/.github/actions/install-go-with-cache@main
+
+      - name: Add replace directives
+        run: |
+          cd jfrog-cli
+          echo "replace github.com/jfrog/jfrog-cli-artifactory => ../jfrog-cli-artifactory" >> go.mod
+          [ -d "../build-info-go" ] && echo "replace github.com/jfrog/build-info-go => ../build-info-go" >> go.mod
+          [ -d "../jfrog-client-go" ] && echo "replace github.com/jfrog/jfrog-client-go => ../jfrog-client-go" >> go.mod
+          [ -d "../jfrog-cli-core" ] && echo "replace github.com/jfrog/jfrog-cli-core/v2 => ../jfrog-cli-core" >> go.mod
+          go mod tidy
+
+      - name: Install local Artifactory
+        uses: jfrog/.github/actions/install-local-artifactory@main
+        with:
+          RTLIC: ${{ secrets.RTLIC }}
+          RT_CONNECTION_TIMEOUT_SECONDS: '1200'
+
+      - name: Run npm tests
+        working-directory: jfrog-cli
+        env:
+          YARN_IGNORE_NODE: 1
+        run: go test -v github.com/jfrog/jfrog-cli --timeout 0 --test.npm
+
+  # ============================================================================
+  # Maven Tests
+  # ============================================================================
+  Maven-Tests:
+    name: Maven (${{ matrix.os.name }})
+    needs: Detect-Replaces
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'safe to test')
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - name: ubuntu
+            version: 24.04
+    runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
+    env:
+      JFROG_CLI_LOG_LEVEL: DEBUG
+      GOPROXY: direct
+    steps:
+      - name: Checkout jfrog-cli-artifactory
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: jfrog-cli-artifactory
+
+      - name: Checkout jfrog-cli
+        uses: actions/checkout@v5
+        with:
+          repository: jfrog/jfrog-cli
+          ref: master
+          path: jfrog-cli
+
+      - name: Checkout build-info-go (if needed)
+        if: needs.Detect-Replaces.outputs.build_info_go_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.build_info_go_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.build_info_go_ref }}
+          path: build-info-go
+
+      - name: Checkout jfrog-client-go (if needed)
+        if: needs.Detect-Replaces.outputs.client_go_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.client_go_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.client_go_ref }}
+          path: jfrog-client-go
+
+      - name: Checkout jfrog-cli-core (if needed)
+        if: needs.Detect-Replaces.outputs.cli_core_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.cli_core_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.cli_core_ref }}
+          path: jfrog-cli-core
+
+      - name: Setup Go with cache
+        uses: jfrog/.github/actions/install-go-with-cache@main
+
+      - name: Setup Maven v3.8.8
+        uses: stCarolas/setup-maven@v5
+        with:
+          maven-version: 3.8.8
+
+      - name: Add replace directives
+        run: |
+          cd jfrog-cli
+          echo "replace github.com/jfrog/jfrog-cli-artifactory => ../jfrog-cli-artifactory" >> go.mod
+          [ -d "../build-info-go" ] && echo "replace github.com/jfrog/build-info-go => ../build-info-go" >> go.mod
+          [ -d "../jfrog-client-go" ] && echo "replace github.com/jfrog/jfrog-client-go => ../jfrog-client-go" >> go.mod
+          [ -d "../jfrog-cli-core" ] && echo "replace github.com/jfrog/jfrog-cli-core/v2 => ../jfrog-cli-core" >> go.mod
+          go mod tidy
+
+      - name: Install local Artifactory
+        uses: jfrog/.github/actions/install-local-artifactory@main
+        with:
+          RTLIC: ${{ secrets.RTLIC }}
+          RT_CONNECTION_TIMEOUT_SECONDS: '1200'
+
+      - name: Run Maven tests
+        working-directory: jfrog-cli
+        run: go test -v github.com/jfrog/jfrog-cli --timeout 0 --test.maven
+
+  # ============================================================================
+  # Gradle Tests
+  # ============================================================================
+  Gradle-Tests:
+    name: Gradle ${{ matrix.gradle-version }} (${{ matrix.os.name }})
+    needs: Detect-Replaces
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'safe to test')
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - name: ubuntu
+            version: 24.04
+        gradle-version: [5.6.4, 8.3]
+    runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
+    env:
+      JFROG_CLI_LOG_LEVEL: DEBUG
+      GOPROXY: direct
+      GRADLE_OPTS: -Dorg.gradle.daemon=false
+    steps:
+      - name: Checkout jfrog-cli-artifactory
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: jfrog-cli-artifactory
+
+      - name: Checkout jfrog-cli
+        uses: actions/checkout@v5
+        with:
+          repository: jfrog/jfrog-cli
+          ref: master
+          path: jfrog-cli
+
+      - name: Checkout build-info-go (if needed)
+        if: needs.Detect-Replaces.outputs.build_info_go_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.build_info_go_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.build_info_go_ref }}
+          path: build-info-go
+
+      - name: Checkout jfrog-client-go (if needed)
+        if: needs.Detect-Replaces.outputs.client_go_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.client_go_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.client_go_ref }}
+          path: jfrog-client-go
+
+      - name: Checkout jfrog-cli-core (if needed)
+        if: needs.Detect-Replaces.outputs.cli_core_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.cli_core_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.cli_core_ref }}
+          path: jfrog-cli-core
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: "temurin"
+          java-version: "11"
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v3
+        with:
+          gradle-version: ${{ matrix.gradle-version }}
+
+      - name: Setup Go with cache
+        uses: jfrog/.github/actions/install-go-with-cache@main
+
+      - name: Add replace directives
+        run: |
+          cd jfrog-cli
+          echo "replace github.com/jfrog/jfrog-cli-artifactory => ../jfrog-cli-artifactory" >> go.mod
+          [ -d "../build-info-go" ] && echo "replace github.com/jfrog/build-info-go => ../build-info-go" >> go.mod
+          [ -d "../jfrog-client-go" ] && echo "replace github.com/jfrog/jfrog-client-go => ../jfrog-client-go" >> go.mod
+          [ -d "../jfrog-cli-core" ] && echo "replace github.com/jfrog/jfrog-cli-core/v2 => ../jfrog-cli-core" >> go.mod
+          go mod tidy
+
+      - name: Install local Artifactory
+        uses: jfrog/.github/actions/install-local-artifactory@main
+        with:
+          RTLIC: ${{ secrets.RTLIC }}
+          RT_CONNECTION_TIMEOUT_SECONDS: '1200'
+
+      - name: Run Gradle tests
+        working-directory: jfrog-cli
+        run: go test -v github.com/jfrog/jfrog-cli --timeout 0 --test.gradle
+
+  # ============================================================================
+  # Conan Tests
+  # ============================================================================
+  Conan-Tests:
+    name: Conan (${{ matrix.os.name }})
+    needs: Detect-Replaces
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'safe to test')
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - name: ubuntu
+            version: 24.04
+    runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
+    env:
+      JFROG_CLI_LOG_LEVEL: DEBUG
+      GOPROXY: direct
+    steps:
+      - name: Checkout jfrog-cli-artifactory
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: jfrog-cli-artifactory
+
+      - name: Checkout jfrog-cli
+        uses: actions/checkout@v5
+        with:
+          repository: jfrog/jfrog-cli
+          ref: master
+          path: jfrog-cli
+
+      - name: Checkout build-info-go (if needed)
+        if: needs.Detect-Replaces.outputs.build_info_go_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.build_info_go_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.build_info_go_ref }}
+          path: build-info-go
+
+      - name: Checkout jfrog-client-go (if needed)
+        if: needs.Detect-Replaces.outputs.client_go_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.client_go_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.client_go_ref }}
+          path: jfrog-client-go
+
+      - name: Checkout jfrog-cli-core (if needed)
+        if: needs.Detect-Replaces.outputs.cli_core_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.cli_core_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.cli_core_ref }}
+          path: jfrog-cli-core
+
+      - name: Setup Go with cache
+        uses: jfrog/.github/actions/install-go-with-cache@main
+
+      - name: Install Conan
+        uses: turtlebrowser/get-conan@main
+        with:
+          version: '2.10.2'
+
+      - name: Add replace directives
+        run: |
+          cd jfrog-cli
+          echo "replace github.com/jfrog/jfrog-cli-artifactory => ../jfrog-cli-artifactory" >> go.mod
+          [ -d "../build-info-go" ] && echo "replace github.com/jfrog/build-info-go => ../build-info-go" >> go.mod
+          [ -d "../jfrog-client-go" ] && echo "replace github.com/jfrog/jfrog-client-go => ../jfrog-client-go" >> go.mod
+          [ -d "../jfrog-cli-core" ] && echo "replace github.com/jfrog/jfrog-cli-core/v2 => ../jfrog-cli-core" >> go.mod
+          go mod tidy
+
+      - name: Install local Artifactory
+        uses: jfrog/.github/actions/install-local-artifactory@main
+        with:
+          RTLIC: ${{ secrets.RTLIC }}
+          RT_CONNECTION_TIMEOUT_SECONDS: '1200'
+
+      - name: Run Conan tests
+        working-directory: jfrog-cli
+        run: go test -v github.com/jfrog/jfrog-cli --timeout 0 --test.conan
+
+  # ============================================================================
+  # Helm Tests
+  # ============================================================================
+  Helm-Tests:
+    name: Helm (${{ matrix.os.name }})
+    needs: Detect-Replaces
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'safe to test')
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - name: ubuntu
+            version: 24.04
+    runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      JFROG_CLI_LOG_LEVEL: DEBUG
+      GOPROXY: direct
+    steps:
+      - name: Checkout jfrog-cli-artifactory
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: jfrog-cli-artifactory
+
+      - name: Checkout jfrog-cli
+        uses: actions/checkout@v5
+        with:
+          repository: jfrog/jfrog-cli
+          ref: master
+          path: jfrog-cli
+
+      - name: Checkout build-info-go (if needed)
+        if: needs.Detect-Replaces.outputs.build_info_go_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.build_info_go_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.build_info_go_ref }}
+          path: build-info-go
+
+      - name: Checkout jfrog-client-go (if needed)
+        if: needs.Detect-Replaces.outputs.client_go_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.client_go_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.client_go_ref }}
+          path: jfrog-client-go
+
+      - name: Checkout jfrog-cli-core (if needed)
+        if: needs.Detect-Replaces.outputs.cli_core_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.cli_core_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.cli_core_ref }}
+          path: jfrog-cli-core
+
+      - name: Setup Go with cache
+        uses: jfrog/.github/actions/install-go-with-cache@main
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'latest'
+
+      - name: Add replace directives
+        run: |
+          cd jfrog-cli
+          echo "replace github.com/jfrog/jfrog-cli-artifactory => ../jfrog-cli-artifactory" >> go.mod
+          [ -d "../build-info-go" ] && echo "replace github.com/jfrog/build-info-go => ../build-info-go" >> go.mod
+          [ -d "../jfrog-client-go" ] && echo "replace github.com/jfrog/jfrog-client-go => ../jfrog-client-go" >> go.mod
+          [ -d "../jfrog-cli-core" ] && echo "replace github.com/jfrog/jfrog-cli-core/v2 => ../jfrog-cli-core" >> go.mod
+          go mod tidy
+
+      - name: Install local Artifactory
+        uses: jfrog/.github/actions/install-local-artifactory@main
+        with:
+          RTLIC: ${{ secrets.RTLIC }}
+          RT_CONNECTION_TIMEOUT_SECONDS: '1200'
+
+      - name: Get ID Token and Exchange Token
+        shell: bash
+        run: |
+          ID_TOKEN=$(curl -sLS -H "User-Agent: actions/oidc-client" -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+          "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=jfrog-github" | jq .value | tr -d '"')
+          echo "JFROG_CLI_OIDC_EXCHANGE_TOKEN_ID=${ID_TOKEN}" >> $GITHUB_ENV
+
+      - name: Run Helm tests
+        working-directory: jfrog-cli
+        run: go test -v github.com/jfrog/jfrog-cli --timeout 0 --test.helm --jfrog.url=http://127.0.0.1:8082 --jfrog.adminToken=${{ env.JFROG_TESTS_LOCAL_ACCESS_TOKEN }}
+
+  # ============================================================================
+  # Docker Tests
+  # ============================================================================
+  Docker-Tests:
+    name: Docker (${{ matrix.os.name }})
+    needs: Detect-Replaces
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'safe to test')
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - name: ubuntu
+            version: 24.04
+    runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
+    env:
+      JFROG_CLI_LOG_LEVEL: DEBUG
+      GOPROXY: direct
+    steps:
+      - name: Checkout jfrog-cli-artifactory
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: jfrog-cli-artifactory
+
+      - name: Checkout jfrog-cli
+        uses: actions/checkout@v5
+        with:
+          repository: jfrog/jfrog-cli
+          ref: master
+          path: jfrog-cli
+
+      - name: Checkout build-info-go (if needed)
+        if: needs.Detect-Replaces.outputs.build_info_go_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.build_info_go_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.build_info_go_ref }}
+          path: build-info-go
+
+      - name: Checkout jfrog-client-go (if needed)
+        if: needs.Detect-Replaces.outputs.client_go_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.client_go_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.client_go_ref }}
+          path: jfrog-client-go
+
+      - name: Checkout jfrog-cli-core (if needed)
+        if: needs.Detect-Replaces.outputs.cli_core_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.cli_core_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.cli_core_ref }}
+          path: jfrog-cli-core
+
+      - name: Setup Go with cache
+        uses: jfrog/.github/actions/install-go-with-cache@main
+
+      - name: Add replace directives
+        run: |
+          cd jfrog-cli
+          echo "replace github.com/jfrog/jfrog-cli-artifactory => ../jfrog-cli-artifactory" >> go.mod
+          [ -d "../build-info-go" ] && echo "replace github.com/jfrog/build-info-go => ../build-info-go" >> go.mod
+          [ -d "../jfrog-client-go" ] && echo "replace github.com/jfrog/jfrog-client-go => ../jfrog-client-go" >> go.mod
+          [ -d "../jfrog-cli-core" ] && echo "replace github.com/jfrog/jfrog-cli-core/v2 => ../jfrog-cli-core" >> go.mod
+          go mod tidy
+
+      - name: Containerize Artifactory
+        run: |
+          cd jfrog-cli/testdata/docker/artifactory/
+          ./start.sh
+        env:
+          RTLIC: ${{ secrets.RTLIC }}
+          GOPROXY: direct
+
+      - name: Wait for Artifactory to finish loading
+        uses: nev7n/wait_for_response@v1
+        with:
+          url: "http://localhost:8082"
+          responseCode: 200
+          timeout: 600000
+          interval: 500
+
+      - name: Run Docker tests
+        working-directory: jfrog-cli
+        run: go test -v -timeout 0 --test.docker
+
+  # ============================================================================
+  # Podman Tests
+  # ============================================================================
+  Podman-Tests:
+    name: Podman (${{ matrix.os.name }})
+    needs: Detect-Replaces
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'safe to test')
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - name: ubuntu
+            version: 24.04
+    runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
+    env:
+      JFROG_CLI_LOG_LEVEL: DEBUG
+      GOPROXY: direct
+    steps:
+      - name: Checkout jfrog-cli-artifactory
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: jfrog-cli-artifactory
+
+      - name: Checkout jfrog-cli
+        uses: actions/checkout@v5
+        with:
+          repository: jfrog/jfrog-cli
+          ref: master
+          path: jfrog-cli
+
+      - name: Checkout build-info-go (if needed)
+        if: needs.Detect-Replaces.outputs.build_info_go_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.build_info_go_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.build_info_go_ref }}
+          path: build-info-go
+
+      - name: Checkout jfrog-client-go (if needed)
+        if: needs.Detect-Replaces.outputs.client_go_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.client_go_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.client_go_ref }}
+          path: jfrog-client-go
+
+      - name: Checkout jfrog-cli-core (if needed)
+        if: needs.Detect-Replaces.outputs.cli_core_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.cli_core_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.cli_core_ref }}
+          path: jfrog-cli-core
+
+      - name: Setup Go with cache
+        uses: jfrog/.github/actions/install-go-with-cache@main
+
+      - name: Add replace directives
+        run: |
+          cd jfrog-cli
+          echo "replace github.com/jfrog/jfrog-cli-artifactory => ../jfrog-cli-artifactory" >> go.mod
+          [ -d "../build-info-go" ] && echo "replace github.com/jfrog/build-info-go => ../build-info-go" >> go.mod
+          [ -d "../jfrog-client-go" ] && echo "replace github.com/jfrog/jfrog-client-go => ../jfrog-client-go" >> go.mod
+          [ -d "../jfrog-cli-core" ] && echo "replace github.com/jfrog/jfrog-cli-core/v2 => ../jfrog-cli-core" >> go.mod
+          go mod tidy
+
+      - name: Run Podman tests
+        working-directory: jfrog-cli
+        run: go test -v -timeout 0 --test.podman --jfrog.url=${{ secrets.EPLUS_PLATFORM_URL }} --jfrog.adminToken=${{ secrets.EPLUS_ADMIN_TOKEN }} --test.containerRegistry=${{ secrets.CONTAINER_REGISTRY }}
+
+  # ============================================================================
+  # Python Tests
+  # ============================================================================
+  Python-Tests:
+    name: Python ${{ matrix.suite }} (${{ matrix.os.name }})
+    needs: Detect-Replaces
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'safe to test')
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [pip, pipenv]
+        os:
+          - name: ubuntu
+            version: 24.04
+    runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
+    env:
+      JFROG_CLI_LOG_LEVEL: DEBUG
+      GOPROXY: direct
+    steps:
+      - name: Checkout jfrog-cli-artifactory
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: jfrog-cli-artifactory
+
+      - name: Checkout jfrog-cli
+        uses: actions/checkout@v5
+        with:
+          repository: jfrog/jfrog-cli
+          ref: master
+          path: jfrog-cli
+
+      - name: Checkout build-info-go (if needed)
+        if: needs.Detect-Replaces.outputs.build_info_go_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.build_info_go_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.build_info_go_ref }}
+          path: build-info-go
+
+      - name: Checkout jfrog-client-go (if needed)
+        if: needs.Detect-Replaces.outputs.client_go_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.client_go_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.client_go_ref }}
+          path: jfrog-client-go
+
+      - name: Checkout jfrog-cli-core (if needed)
+        if: needs.Detect-Replaces.outputs.cli_core_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.cli_core_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.cli_core_ref }}
+          path: jfrog-cli-core
+
+      - name: Setup Python3
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11.5"
+
+      - name: Setup Pipenv
+        if: matrix.suite == 'pipenv'
+        run: python -m pip install pipenv
+
+      - name: Setup Twine
+        if: matrix.suite == 'pip'
+        run: python -m pip install twine
+
+      - name: Setup Go with cache
+        uses: jfrog/.github/actions/install-go-with-cache@main
+
+      - name: Add replace directives
+        run: |
+          cd jfrog-cli
+          echo "replace github.com/jfrog/jfrog-cli-artifactory => ../jfrog-cli-artifactory" >> go.mod
+          [ -d "../build-info-go" ] && echo "replace github.com/jfrog/build-info-go => ../build-info-go" >> go.mod
+          [ -d "../jfrog-client-go" ] && echo "replace github.com/jfrog/jfrog-client-go => ../jfrog-client-go" >> go.mod
+          [ -d "../jfrog-cli-core" ] && echo "replace github.com/jfrog/jfrog-cli-core/v2 => ../jfrog-cli-core" >> go.mod
+          go mod tidy
+
+      - name: Install local Artifactory
+        uses: jfrog/.github/actions/install-local-artifactory@main
+        with:
+          RTLIC: ${{ secrets.RTLIC }}
+          RT_CONNECTION_TIMEOUT_SECONDS: '1200'
+
+      - name: Run Python tests
+        working-directory: jfrog-cli
+        run: go test -v github.com/jfrog/jfrog-cli --timeout 0 --test.${{ matrix.suite }}
+
+  # ============================================================================
+  # Lifecycle Tests
+  # ============================================================================
+  Lifecycle-Tests:
+    name: Lifecycle (${{ matrix.os.name }})
+    needs: Detect-Replaces
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'safe to test')
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - name: ubuntu
+            version: 24.04
+    runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
+    env:
+      JFROG_CLI_LOG_LEVEL: DEBUG
+      GOPROXY: direct
+    steps:
+      - name: Checkout jfrog-cli-artifactory
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: jfrog-cli-artifactory
+
+      - name: Checkout jfrog-cli
+        uses: actions/checkout@v5
+        with:
+          repository: jfrog/jfrog-cli
+          ref: master
+          path: jfrog-cli
+
+      - name: Checkout build-info-go (if needed)
+        if: needs.Detect-Replaces.outputs.build_info_go_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.build_info_go_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.build_info_go_ref }}
+          path: build-info-go
+
+      - name: Checkout jfrog-client-go (if needed)
+        if: needs.Detect-Replaces.outputs.client_go_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.client_go_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.client_go_ref }}
+          path: jfrog-client-go
+
+      - name: Checkout jfrog-cli-core (if needed)
+        if: needs.Detect-Replaces.outputs.cli_core_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.cli_core_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.cli_core_ref }}
+          path: jfrog-cli-core
+
+      - name: Setup Go with cache
+        uses: jfrog/.github/actions/install-go-with-cache@main
+
+      - name: Add replace directives
+        run: |
+          cd jfrog-cli
+          echo "replace github.com/jfrog/jfrog-cli-artifactory => ../jfrog-cli-artifactory" >> go.mod
+          [ -d "../build-info-go" ] && echo "replace github.com/jfrog/build-info-go => ../build-info-go" >> go.mod
+          [ -d "../jfrog-client-go" ] && echo "replace github.com/jfrog/jfrog-client-go => ../jfrog-client-go" >> go.mod
+          [ -d "../jfrog-cli-core" ] && echo "replace github.com/jfrog/jfrog-cli-core/v2 => ../jfrog-cli-core" >> go.mod
+          go mod tidy
+
+      - name: Install local Artifactory
+        uses: jfrog/.github/actions/install-local-artifactory@main
+        with:
+          RTLIC: ${{ secrets.RTLIC }}
+          RT_CONNECTION_TIMEOUT_SECONDS: '1200'
+
+      - name: Run Lifecycle tests
+        working-directory: jfrog-cli
+        run: go test -v github.com/jfrog/jfrog-cli --timeout 0 --test.lifecycle --jfrog.url=http://127.0.0.1:8082 --jfrog.adminToken=${{ env.JFROG_TESTS_LOCAL_ACCESS_TOKEN }} --ci.runId=${{ runner.os }}-lifecycle
+
+  # ============================================================================
+  # Distribution Tests
+  # ============================================================================
+  Distribution-Tests:
+    name: Distribution (${{ matrix.os.name }})
+    needs: Detect-Replaces
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'safe to test')
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - name: ubuntu
+            version: 24.04
+    runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
+    env:
+      JFROG_CLI_LOG_LEVEL: DEBUG
+      GOPROXY: direct
+    steps:
+      - name: Checkout jfrog-cli-artifactory
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: jfrog-cli-artifactory
+
+      - name: Checkout jfrog-cli
+        uses: actions/checkout@v5
+        with:
+          repository: jfrog/jfrog-cli
+          ref: master
+          path: jfrog-cli
+
+      - name: Checkout build-info-go (if needed)
+        if: needs.Detect-Replaces.outputs.build_info_go_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.build_info_go_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.build_info_go_ref }}
+          path: build-info-go
+
+      - name: Checkout jfrog-client-go (if needed)
+        if: needs.Detect-Replaces.outputs.client_go_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.client_go_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.client_go_ref }}
+          path: jfrog-client-go
+
+      - name: Checkout jfrog-cli-core (if needed)
+        if: needs.Detect-Replaces.outputs.cli_core_repo != ''
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ needs.Detect-Replaces.outputs.cli_core_repo }}
+          ref: ${{ needs.Detect-Replaces.outputs.cli_core_ref }}
+          path: jfrog-cli-core
+
+      - name: Setup Go with cache
+        uses: jfrog/.github/actions/install-go-with-cache@main
+
+      - name: Add replace directives
+        run: |
+          cd jfrog-cli
+          echo "replace github.com/jfrog/jfrog-cli-artifactory => ../jfrog-cli-artifactory" >> go.mod
+          [ -d "../build-info-go" ] && echo "replace github.com/jfrog/build-info-go => ../build-info-go" >> go.mod
+          [ -d "../jfrog-client-go" ] && echo "replace github.com/jfrog/jfrog-client-go => ../jfrog-client-go" >> go.mod
+          [ -d "../jfrog-cli-core" ] && echo "replace github.com/jfrog/jfrog-cli-core/v2 => ../jfrog-cli-core" >> go.mod
+          go mod tidy
+
+      - name: Run Distribution tests
+        working-directory: jfrog-cli
+        run: go test -v github.com/jfrog/jfrog-cli --timeout 0 --test.distribution --jfrog.url=${{ secrets.PLATFORM_URL }} --jfrog.adminToken=${{ secrets.PLATFORM_ADMIN_TOKEN }} --jfrog.user=${{ secrets.PLATFORM_USER }} --ci.runId=${{ runner.os }}-distribution
