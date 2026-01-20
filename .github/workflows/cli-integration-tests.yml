@@ -6,8 +6,7 @@ on:
     branches:
       - main
       - master
-  # Note: pull_request_target runs workflow from BASE branch
-  # Once merged to main, remove pull_request trigger and keep only pull_request_target
+
   pull_request_target:
     types: [labeled]
     branches:
@@ -119,6 +118,7 @@ jobs:
             echo "cli_core_ref=" >> $GITHUB_OUTPUT
             echo "⏭️  jfrog-cli-core: using default"
           fi
+
 
   Artifactory-Tests:
     name: ${{ matrix.suite }} ${{ matrix.os.name }}
