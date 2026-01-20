@@ -27,8 +27,17 @@ on:
     branches:
       - main
       - master
+  # Note: pull_request_target runs workflow from BASE branch
+  # Once merged to main, remove pull_request trigger and keep only pull_request_target
   pull_request_target:
     types: [labeled]
+    branches:
+      - main
+      - master
+  # Temporary: Using pull_request to test before merging to main
+  # This runs the workflow from the PR branch
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
     branches:
       - main
       - master
