@@ -128,9 +128,9 @@ jobs:
           go work init
           go work use ./jfrog-cli
           go work use ./jfrog-cli-artifactory
-          [ -d "./build-info-go" ] && go work use ./build-info-go
-          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go
-          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core
+          [ -d "./build-info-go" ] && go work use ./build-info-go || true
+          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go || true
+          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core || true
           cat go.work
 
       - name: Setup Go workspace (Windows)
@@ -226,9 +226,9 @@ jobs:
           go work init
           go work use ./jfrog-cli
           go work use ./jfrog-cli-artifactory
-          [ -d "./build-info-go" ] && go work use ./build-info-go
-          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go
-          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core
+          [ -d "./build-info-go" ] && go work use ./build-info-go || true
+          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go || true
+          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core || true
 
       - name: Setup Go workspace (Windows)
         if: matrix.os.name == 'windows'
@@ -335,9 +335,9 @@ jobs:
           go work init
           go work use ./jfrog-cli
           go work use ./jfrog-cli-artifactory
-          [ -d "./build-info-go" ] && go work use ./build-info-go
-          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go
-          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core
+          [ -d "./build-info-go" ] && go work use ./build-info-go || true
+          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go || true
+          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core || true
 
       - name: Setup Go workspace (Windows)
         if: matrix.os.name == 'windows'
@@ -430,9 +430,9 @@ jobs:
           go work init
           go work use ./jfrog-cli
           go work use ./jfrog-cli-artifactory
-          [ -d "./build-info-go" ] && go work use ./build-info-go
-          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go
-          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core
+          [ -d "./build-info-go" ] && go work use ./build-info-go || true
+          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go || true
+          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core || true
 
       - name: Setup Go workspace (Windows)
         if: matrix.os.name == 'windows'
@@ -527,9 +527,9 @@ jobs:
           go work init
           go work use ./jfrog-cli
           go work use ./jfrog-cli-artifactory
-          [ -d "./build-info-go" ] && go work use ./build-info-go
-          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go
-          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core
+          [ -d "./build-info-go" ] && go work use ./build-info-go || true
+          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go || true
+          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core || true
 
       - name: Setup Go workspace (Windows)
         if: matrix.os.name == 'windows'
@@ -630,9 +630,9 @@ jobs:
           go work init
           go work use ./jfrog-cli
           go work use ./jfrog-cli-artifactory
-          [ -d "./build-info-go" ] && go work use ./build-info-go
-          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go
-          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core
+          [ -d "./build-info-go" ] && go work use ./build-info-go || true
+          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go || true
+          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core || true
 
       - name: Setup Go workspace (Windows)
         if: matrix.os.name == 'windows'
@@ -725,9 +725,9 @@ jobs:
           go work init
           go work use ./jfrog-cli
           go work use ./jfrog-cli-artifactory
-          [ -d "./build-info-go" ] && go work use ./build-info-go
-          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go
-          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core
+          [ -d "./build-info-go" ] && go work use ./build-info-go || true
+          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go || true
+          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core || true
 
       - name: Setup Go workspace (Windows)
         if: matrix.os.name == 'windows'
@@ -820,9 +820,9 @@ jobs:
           go work init
           go work use ./jfrog-cli
           go work use ./jfrog-cli-artifactory
-          [ -d "./build-info-go" ] && go work use ./build-info-go
-          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go
-          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core
+          [ -d "./build-info-go" ] && go work use ./build-info-go || true
+          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go || true
+          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core || true
 
       - name: Setup Go workspace (Windows)
         if: matrix.os.name == 'windows'
@@ -901,9 +901,9 @@ jobs:
           go work init
           go work use ./jfrog-cli
           go work use ./jfrog-cli-artifactory
-          [ -d "./build-info-go" ] && go work use ./build-info-go
-          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go
-          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core
+          [ -d "./build-info-go" ] && go work use ./build-info-go || true
+          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go || true
+          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core || true
 
       - name: Containerize Artifactory
         run: |
@@ -981,9 +981,9 @@ jobs:
           go work init
           go work use ./jfrog-cli
           go work use ./jfrog-cli-artifactory
-          [ -d "./build-info-go" ] && go work use ./build-info-go
-          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go
-          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core
+          [ -d "./build-info-go" ] && go work use ./build-info-go || true
+          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go || true
+          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core || true
 
       - name: Run Podman tests
         working-directory: jfrog-cli
@@ -1068,9 +1068,9 @@ jobs:
           go work init
           go work use ./jfrog-cli
           go work use ./jfrog-cli-artifactory
-          [ -d "./build-info-go" ] && go work use ./build-info-go
-          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go
-          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core
+          [ -d "./build-info-go" ] && go work use ./build-info-go || true
+          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go || true
+          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core || true
 
       - name: Setup Go workspace (Windows)
         if: matrix.os.name == 'windows'
@@ -1158,9 +1158,9 @@ jobs:
           go work init
           go work use ./jfrog-cli
           go work use ./jfrog-cli-artifactory
-          [ -d "./build-info-go" ] && go work use ./build-info-go
-          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go
-          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core
+          [ -d "./build-info-go" ] && go work use ./build-info-go || true
+          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go || true
+          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core || true
 
       - name: Setup Go workspace (Windows)
         if: matrix.os.name == 'windows'
@@ -1248,9 +1248,9 @@ jobs:
           go work init
           go work use ./jfrog-cli
           go work use ./jfrog-cli-artifactory
-          [ -d "./build-info-go" ] && go work use ./build-info-go
-          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go
-          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core
+          [ -d "./build-info-go" ] && go work use ./build-info-go || true
+          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go || true
+          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core || true
 
       - name: Setup Go workspace (Windows)
         if: matrix.os.name == 'windows'
