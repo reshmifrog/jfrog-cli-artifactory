@@ -1,6 +1,3 @@
-// Package main provides a tool to detect and resolve JFrog module dependencies
-// by parsing go.mod using `go mod edit -json` and checking for branch availability
-// in forked repositories.
 package main
 
 import (
@@ -45,17 +42,17 @@ type ModuleVersion struct {
 
 // DependencyInfo holds information about a detected dependency
 type DependencyInfo struct {
-	Name       string // Short name like "build-info-go"
-	ModulePath string // Full module path like "github.com/jfrog/build-info-go"
-	Repo       string // Repository like "jfrog/build-info-go"
-	Ref        string // Branch or tag reference
+	Name       string
+	ModulePath string
+	Repo       string
+	Ref        string
 }
 
 // jfrogDependencies maps short names to their module paths
 var jfrogDependencies = map[string]string{
-	"build-info-go":    "github.com/jfrog/build-info-go",
-	"jfrog-client-go":  "github.com/jfrog/jfrog-client-go",
-	"jfrog-cli-core":   "github.com/jfrog/jfrog-cli-core/v2",
+	"build-info-go":   "github.com/jfrog/build-info-go",
+	"jfrog-client-go": "github.com/jfrog/jfrog-client-go",
+	"jfrog-cli-core":  "github.com/jfrog/jfrog-cli-core/v2",
 }
 
 func main() {
@@ -90,11 +87,6 @@ func main() {
 		}
 		defer output.Close()
 	}
-
-	fmt.Println("============================================")
-	fmt.Println("Detecting JFrog dependencies...")
-	fmt.Println("============================================")
-	fmt.Printf("Current branch: %s\n\n", currentBranch)
 
 	// Process each dependency
 	for name, modulePath := range jfrogDependencies {
@@ -162,7 +154,6 @@ func detectDependency(name, modulePath string, replaces map[string]Replace, curr
 		}
 	}
 
-	// Fall back to master
 	fmt.Printf("No matching branch for %s, will use default (master)\n", name)
 	return nil
 }
@@ -170,7 +161,7 @@ func detectDependency(name, modulePath string, replaces map[string]Replace, curr
 // branchExists checks if a branch exists in a GitHub repository
 func branchExists(repo, branch string) bool {
 	if branch == "" || branch == "main" || branch == "master" {
-		return false // Don't try to match main/master, use defaults
+		return false
 	}
 
 	url := fmt.Sprintf("https://github.com/%s.git", repo)
@@ -180,7 +171,6 @@ func branchExists(repo, branch string) bool {
 		return false
 	}
 
-	// If output contains the branch name, it exists
 	return strings.Contains(string(out), fmt.Sprintf("refs/heads/%s", branch))
 }
 
@@ -201,7 +191,6 @@ func writeOutput(output *os.File, name string, info *DependencyInfo) {
 		fmt.Fprintf(output, "%s_ref=%s\n", keyName, ref)
 	}
 
-	// Also print for visibility
 	if info != nil {
 		fmt.Printf("  %s_repo=%s\n", keyName, repo)
 		fmt.Printf("  %s_ref=%s\n", keyName, ref)
