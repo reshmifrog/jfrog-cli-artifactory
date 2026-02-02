@@ -80,7 +80,7 @@ jobs:
       GOPROXY: direct
     steps:
       # Checkout jfrog-cli-artifactory to root first to make composite action available
-      - name: Checkout jfrog-cli-artifactory (for composite action)
+      - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
@@ -139,7 +139,7 @@ jobs:
       GOPROXY: direct
     steps:
       # Checkout jfrog-cli-artifactory to root first to make composite action available
-      - name: Checkout jfrog-cli-artifactory (for composite action)
+      - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
@@ -188,7 +188,7 @@ jobs:
       GOPROXY: direct
     steps:
       # Checkout jfrog-cli-artifactory to root first to make composite action available
-      - name: Checkout jfrog-cli-artifactory (for composite action)
+      - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
@@ -266,7 +266,7 @@ jobs:
       GOPROXY: direct
     steps:
       # Checkout jfrog-cli-artifactory to root first to make composite action available
-      - name: Checkout jfrog-cli-artifactory (for composite action)
+      - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
@@ -326,7 +326,7 @@ jobs:
       GOPROXY: direct
     steps:
       # Checkout jfrog-cli-artifactory to root first to make composite action available
-      - name: Checkout jfrog-cli-artifactory (for composite action)
+      - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
@@ -386,7 +386,7 @@ jobs:
       GRADLE_OPTS: -Dorg.gradle.daemon=false
     steps:
       # Checkout jfrog-cli-artifactory to root first to make composite action available
-      - name: Checkout jfrog-cli-artifactory (for composite action)
+      - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
@@ -450,7 +450,7 @@ jobs:
       GOPROXY: direct
     steps:
       # Checkout jfrog-cli-artifactory to root first to make composite action available
-      - name: Checkout jfrog-cli-artifactory (for composite action)
+      - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
@@ -508,7 +508,7 @@ jobs:
       GOPROXY: direct
     steps:
       # Checkout jfrog-cli-artifactory to root first to make composite action available
-      - name: Checkout jfrog-cli-artifactory (for composite action)
+      - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
@@ -558,7 +558,7 @@ jobs:
       GOPROXY: direct
     steps:
       # Checkout jfrog-cli-artifactory to root first to make composite action available
-      - name: Checkout jfrog-cli-artifactory (for composite action)
+      - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
@@ -618,7 +618,7 @@ jobs:
       GOPROXY: direct
     steps:
       # Checkout jfrog-cli-artifactory to root first to make composite action available
-      - name: Checkout jfrog-cli-artifactory (for composite action)
+      - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
@@ -671,7 +671,7 @@ jobs:
       GOPROXY: direct
     steps:
       # Checkout jfrog-cli-artifactory to root first to make composite action available
-      - name: Checkout jfrog-cli-artifactory (for composite action)
+      - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
@@ -737,7 +737,7 @@ jobs:
       GOPROXY: direct
     steps:
       # Checkout jfrog-cli-artifactory to root first to make composite action available
-      - name: Checkout jfrog-cli-artifactory (for composite action)
+      - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
@@ -790,7 +790,7 @@ jobs:
       GOPROXY: direct
     steps:
       # Checkout jfrog-cli-artifactory to root first to make composite action available
-      - name: Checkout jfrog-cli-artifactory (for composite action)
+      - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
