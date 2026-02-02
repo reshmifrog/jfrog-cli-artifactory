@@ -36,17 +36,20 @@ runs:
     - name: Move jfrog-cli-artifactory to subdirectory
       shell: bash
       run: |
-        # Create temp directory and move all files except .git
+        # Create temp directory and move all files except .git and .github (keep .github at root for composite actions)
         mkdir -p /tmp/cli-artifactory-temp
-        # Move everything to temp (excluding hidden files that might cause issues)
-        find . -maxdepth 1 -not -name '.' -not -name '.git' -exec mv {} /tmp/cli-artifactory-temp/ \;
+        # Move everything to temp (excluding .git and .github which need to stay at root)
+        find . -maxdepth 1 -not -name '.' -not -name '.git' -not -name '.github' -exec mv {} /tmp/cli-artifactory-temp/ \;
         # Create subdirectory and move back
         mkdir -p jfrog-cli-artifactory
         mv /tmp/cli-artifactory-temp/* jfrog-cli-artifactory/ 2>/dev/null || true
         mv /tmp/cli-artifactory-temp/.* jfrog-cli-artifactory/ 2>/dev/null || true
         rmdir /tmp/cli-artifactory-temp 2>/dev/null || true
-        echo "Moved jfrog-cli-artifactory to subdirectory"
+        # Copy .github to subdirectory as well (needed for go.mod location)
+        cp -r .github jfrog-cli-artifactory/.github
+        echo "Moved jfrog-cli-artifactory to subdirectory (kept .github at root)"
         ls -la
+        ls -la jfrog-cli-artifactory/
 
     - name: Checkout jfrog-cli
       uses: actions/checkout@v4
