@@ -12,7 +12,7 @@ on:
       - main
 
   pull_request:
-    types: [ labeled ]
+    types: [opened, synchronize, reopened, labeled]
     branches:
       - main
 
@@ -100,29 +100,10 @@ jobs:
       - name: Setup Go with cache
         uses: jfrog/.github/actions/install-go-with-cache@main
 
-      - name: Setup Go workspace (Unix)
-        if: matrix.os.name == 'ubuntu'
-        shell: bash
-        run: |
-          go work init
-          go work use ./jfrog-cli
-          go work use ./jfrog-cli-artifactory
-          [ -d "./build-info-go" ] && go work use ./build-info-go || true
-          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go || true
-          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core || true
-          cat go.work
-
-      - name: Setup Go workspace (Windows)
-        if: matrix.os.name == 'windows'
-        shell: pwsh
-        run: |
-          go work init
-          go work use ./jfrog-cli
-          go work use ./jfrog-cli-artifactory
-          if (Test-Path "./build-info-go") { go work use ./build-info-go }
-          if (Test-Path "./jfrog-client-go") { go work use ./jfrog-client-go }
-          if (Test-Path "./jfrog-cli-core") { go work use ./jfrog-cli-core }
-          Get-Content go.work
+      - name: Setup Go workspace
+        uses: ./.github/actions/setup-go-workspace
+        with:
+          os_name: ${{ matrix.os.name }}
 
       - name: Install local Artifactory
         uses: jfrog/.github/actions/install-local-artifactory@main
@@ -178,27 +159,10 @@ jobs:
       - name: Setup Go with cache
         uses: jfrog/.github/actions/install-go-with-cache@main
 
-      - name: Setup Go workspace (Unix)
-        if: matrix.os.name == 'ubuntu'
-        shell: bash
-        run: |
-          go work init
-          go work use ./jfrog-cli
-          go work use ./jfrog-cli-artifactory
-          [ -d "./build-info-go" ] && go work use ./build-info-go || true
-          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go || true
-          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core || true
-
-      - name: Setup Go workspace (Windows)
-        if: matrix.os.name == 'windows'
-        shell: pwsh
-        run: |
-          go work init
-          go work use ./jfrog-cli
-          go work use ./jfrog-cli-artifactory
-          if (Test-Path "./build-info-go") { go work use ./build-info-go }
-          if (Test-Path "./jfrog-client-go") { go work use ./jfrog-client-go }
-          if (Test-Path "./jfrog-cli-core") { go work use ./jfrog-cli-core }
+      - name: Setup Go workspace
+        uses: ./.github/actions/setup-go-workspace
+        with:
+          os_name: ${{ matrix.os.name }}
 
       - name: Run Go tests
         working-directory: jfrog-cli
@@ -269,27 +233,10 @@ jobs:
       - name: Setup Go with cache
         uses: jfrog/.github/actions/install-go-with-cache@main
 
-      - name: Setup Go workspace (Unix)
-        if: matrix.os.name == 'ubuntu'
-        shell: bash
-        run: |
-          go work init
-          go work use ./jfrog-cli
-          go work use ./jfrog-cli-artifactory
-          [ -d "./build-info-go" ] && go work use ./build-info-go || true
-          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go || true
-          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core || true
-
-      - name: Setup Go workspace (Windows)
-        if: matrix.os.name == 'windows'
-        shell: pwsh
-        run: |
-          go work init
-          go work use ./jfrog-cli
-          go work use ./jfrog-cli-artifactory
-          if (Test-Path "./build-info-go") { go work use ./build-info-go }
-          if (Test-Path "./jfrog-client-go") { go work use ./jfrog-client-go }
-          if (Test-Path "./jfrog-cli-core") { go work use ./jfrog-cli-core }
+      - name: Setup Go workspace
+        uses: ./.github/actions/setup-go-workspace
+        with:
+          os_name: ${{ matrix.os.name }}
 
       - name: Install local Artifactory
         uses: jfrog/.github/actions/install-local-artifactory@main
@@ -344,27 +291,10 @@ jobs:
       - name: Setup Go with cache
         uses: jfrog/.github/actions/install-go-with-cache@main
 
-      - name: Setup Go workspace (Unix)
-        if: matrix.os.name == 'ubuntu'
-        shell: bash
-        run: |
-          go work init
-          go work use ./jfrog-cli
-          go work use ./jfrog-cli-artifactory
-          [ -d "./build-info-go" ] && go work use ./build-info-go || true
-          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go || true
-          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core || true
-
-      - name: Setup Go workspace (Windows)
-        if: matrix.os.name == 'windows'
-        shell: pwsh
-        run: |
-          go work init
-          go work use ./jfrog-cli
-          go work use ./jfrog-cli-artifactory
-          if (Test-Path "./build-info-go") { go work use ./build-info-go }
-          if (Test-Path "./jfrog-client-go") { go work use ./jfrog-client-go }
-          if (Test-Path "./jfrog-cli-core") { go work use ./jfrog-cli-core }
+      - name: Setup Go workspace
+        uses: ./.github/actions/setup-go-workspace
+        with:
+          os_name: ${{ matrix.os.name }}
 
       - name: Install local Artifactory
         uses: jfrog/.github/actions/install-local-artifactory@main
@@ -421,27 +351,10 @@ jobs:
         with:
           maven-version: 3.8.8
 
-      - name: Setup Go workspace (Unix)
-        if: matrix.os.name == 'ubuntu'
-        shell: bash
-        run: |
-          go work init
-          go work use ./jfrog-cli
-          go work use ./jfrog-cli-artifactory
-          [ -d "./build-info-go" ] && go work use ./build-info-go || true
-          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go || true
-          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core || true
-
-      - name: Setup Go workspace (Windows)
-        if: matrix.os.name == 'windows'
-        shell: pwsh
-        run: |
-          go work init
-          go work use ./jfrog-cli
-          go work use ./jfrog-cli-artifactory
-          if (Test-Path "./build-info-go") { go work use ./build-info-go }
-          if (Test-Path "./jfrog-client-go") { go work use ./jfrog-client-go }
-          if (Test-Path "./jfrog-cli-core") { go work use ./jfrog-cli-core }
+      - name: Setup Go workspace
+        uses: ./.github/actions/setup-go-workspace
+        with:
+          os_name: ${{ matrix.os.name }}
 
       - name: Install local Artifactory
         uses: jfrog/.github/actions/install-local-artifactory@main
@@ -504,27 +417,10 @@ jobs:
       - name: Setup Go with cache
         uses: jfrog/.github/actions/install-go-with-cache@main
 
-      - name: Setup Go workspace (Unix)
-        if: matrix.os.name == 'ubuntu'
-        shell: bash
-        run: |
-          go work init
-          go work use ./jfrog-cli
-          go work use ./jfrog-cli-artifactory
-          [ -d "./build-info-go" ] && go work use ./build-info-go || true
-          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go || true
-          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core || true
-
-      - name: Setup Go workspace (Windows)
-        if: matrix.os.name == 'windows'
-        shell: pwsh
-        run: |
-          go work init
-          go work use ./jfrog-cli
-          go work use ./jfrog-cli-artifactory
-          if (Test-Path "./build-info-go") { go work use ./build-info-go }
-          if (Test-Path "./jfrog-client-go") { go work use ./jfrog-client-go }
-          if (Test-Path "./jfrog-cli-core") { go work use ./jfrog-cli-core }
+      - name: Setup Go workspace
+        uses: ./.github/actions/setup-go-workspace
+        with:
+          os_name: ${{ matrix.os.name }}
 
       - name: Install local Artifactory
         uses: jfrog/.github/actions/install-local-artifactory@main
@@ -579,27 +475,10 @@ jobs:
         with:
           version: '2.10.2'
 
-      - name: Setup Go workspace (Unix)
-        if: matrix.os.name == 'ubuntu'
-        shell: bash
-        run: |
-          go work init
-          go work use ./jfrog-cli
-          go work use ./jfrog-cli-artifactory
-          [ -d "./build-info-go" ] && go work use ./build-info-go || true
-          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go || true
-          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core || true
-
-      - name: Setup Go workspace (Windows)
-        if: matrix.os.name == 'windows'
-        shell: pwsh
-        run: |
-          go work init
-          go work use ./jfrog-cli
-          go work use ./jfrog-cli-artifactory
-          if (Test-Path "./build-info-go") { go work use ./build-info-go }
-          if (Test-Path "./jfrog-client-go") { go work use ./jfrog-client-go }
-          if (Test-Path "./jfrog-cli-core") { go work use ./jfrog-cli-core }
+      - name: Setup Go workspace
+        uses: ./.github/actions/setup-go-workspace
+        with:
+          os_name: ${{ matrix.os.name }}
 
       - name: Install local Artifactory
         uses: jfrog/.github/actions/install-local-artifactory@main
@@ -654,27 +533,10 @@ jobs:
         with:
           version: 'latest'
 
-      - name: Setup Go workspace (Unix)
-        if: matrix.os.name == 'ubuntu'
-        shell: bash
-        run: |
-          go work init
-          go work use ./jfrog-cli
-          go work use ./jfrog-cli-artifactory
-          [ -d "./build-info-go" ] && go work use ./build-info-go || true
-          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go || true
-          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core || true
-
-      - name: Setup Go workspace (Windows)
-        if: matrix.os.name == 'windows'
-        shell: pwsh
-        run: |
-          go work init
-          go work use ./jfrog-cli
-          go work use ./jfrog-cli-artifactory
-          if (Test-Path "./build-info-go") { go work use ./build-info-go }
-          if (Test-Path "./jfrog-client-go") { go work use ./jfrog-client-go }
-          if (Test-Path "./jfrog-cli-core") { go work use ./jfrog-cli-core }
+      - name: Setup Go workspace
+        uses: ./.github/actions/setup-go-workspace
+        with:
+          os_name: ${{ matrix.os.name }}
 
       - name: Install local Artifactory
         uses: jfrog/.github/actions/install-local-artifactory@main
@@ -842,27 +704,10 @@ jobs:
       - name: Setup Go with cache
         uses: jfrog/.github/actions/install-go-with-cache@main
 
-      - name: Setup Go workspace (Unix)
-        if: matrix.os.name == 'ubuntu'
-        shell: bash
-        run: |
-          go work init
-          go work use ./jfrog-cli
-          go work use ./jfrog-cli-artifactory
-          [ -d "./build-info-go" ] && go work use ./build-info-go || true
-          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go || true
-          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core || true
-
-      - name: Setup Go workspace (Windows)
-        if: matrix.os.name == 'windows'
-        shell: pwsh
-        run: |
-          go work init
-          go work use ./jfrog-cli
-          go work use ./jfrog-cli-artifactory
-          if (Test-Path "./build-info-go") { go work use ./build-info-go }
-          if (Test-Path "./jfrog-client-go") { go work use ./jfrog-client-go }
-          if (Test-Path "./jfrog-cli-core") { go work use ./jfrog-cli-core }
+      - name: Setup Go workspace
+        uses: ./.github/actions/setup-go-workspace
+        with:
+          os_name: ${{ matrix.os.name }}
 
       - name: Install local Artifactory
         uses: jfrog/.github/actions/install-local-artifactory@main
@@ -912,27 +757,10 @@ jobs:
       - name: Setup Go with cache
         uses: jfrog/.github/actions/install-go-with-cache@main
 
-      - name: Setup Go workspace (Unix)
-        if: matrix.os.name == 'ubuntu'
-        shell: bash
-        run: |
-          go work init
-          go work use ./jfrog-cli
-          go work use ./jfrog-cli-artifactory
-          [ -d "./build-info-go" ] && go work use ./build-info-go || true
-          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go || true
-          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core || true
-
-      - name: Setup Go workspace (Windows)
-        if: matrix.os.name == 'windows'
-        shell: pwsh
-        run: |
-          go work init
-          go work use ./jfrog-cli
-          go work use ./jfrog-cli-artifactory
-          if (Test-Path "./build-info-go") { go work use ./build-info-go }
-          if (Test-Path "./jfrog-client-go") { go work use ./jfrog-client-go }
-          if (Test-Path "./jfrog-cli-core") { go work use ./jfrog-cli-core }
+      - name: Setup Go workspace
+        uses: ./.github/actions/setup-go-workspace
+        with:
+          os_name: ${{ matrix.os.name }}
 
       - name: Install local Artifactory
         uses: jfrog/.github/actions/install-local-artifactory@main
@@ -982,27 +810,10 @@ jobs:
       - name: Setup Go with cache
         uses: jfrog/.github/actions/install-go-with-cache@main
 
-      - name: Setup Go workspace (Unix)
-        if: matrix.os.name == 'ubuntu'
-        shell: bash
-        run: |
-          go work init
-          go work use ./jfrog-cli
-          go work use ./jfrog-cli-artifactory
-          [ -d "./build-info-go" ] && go work use ./build-info-go || true
-          [ -d "./jfrog-client-go" ] && go work use ./jfrog-client-go || true
-          [ -d "./jfrog-cli-core" ] && go work use ./jfrog-cli-core || true
-
-      - name: Setup Go workspace (Windows)
-        if: matrix.os.name == 'windows'
-        shell: pwsh
-        run: |
-          go work init
-          go work use ./jfrog-cli
-          go work use ./jfrog-cli-artifactory
-          if (Test-Path "./build-info-go") { go work use ./build-info-go }
-          if (Test-Path "./jfrog-client-go") { go work use ./jfrog-client-go }
-          if (Test-Path "./jfrog-cli-core") { go work use ./jfrog-cli-core }
+      - name: Setup Go workspace
+        uses: ./.github/actions/setup-go-workspace
+        with:
+          os_name: ${{ matrix.os.name }}
 
       - name: Run Distribution tests
         working-directory: jfrog-cli
