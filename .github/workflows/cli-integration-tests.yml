@@ -77,7 +77,6 @@ jobs:
     runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
     env:
       JFROG_CLI_LOG_LEVEL: DEBUG
-      GOPROXY: direct
     steps:
       # Checkout jfrog-cli-artifactory to root first to make composite action available
       - name: Checkout jfrog-cli-artifactory
@@ -136,7 +135,6 @@ jobs:
     runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
     env:
       JFROG_CLI_LOG_LEVEL: DEBUG
-      GOPROXY: direct
     steps:
       # Checkout jfrog-cli-artifactory to root first to make composite action available
       - name: Checkout jfrog-cli-artifactory
@@ -185,7 +183,6 @@ jobs:
     runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
     env:
       JFROG_CLI_LOG_LEVEL: DEBUG
-      GOPROXY: direct
     steps:
       # Checkout jfrog-cli-artifactory to root first to make composite action available
       - name: Checkout jfrog-cli-artifactory
@@ -263,7 +260,6 @@ jobs:
     runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
     env:
       JFROG_CLI_LOG_LEVEL: DEBUG
-      GOPROXY: direct
     steps:
       # Checkout jfrog-cli-artifactory to root first to make composite action available
       - name: Checkout jfrog-cli-artifactory
@@ -323,7 +319,6 @@ jobs:
     runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
     env:
       JFROG_CLI_LOG_LEVEL: DEBUG
-      GOPROXY: direct
     steps:
       # Checkout jfrog-cli-artifactory to root first to make composite action available
       - name: Checkout jfrog-cli-artifactory
@@ -382,7 +377,6 @@ jobs:
     runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
     env:
       JFROG_CLI_LOG_LEVEL: DEBUG
-      GOPROXY: direct
       GRADLE_OPTS: -Dorg.gradle.daemon=false
     steps:
       # Checkout jfrog-cli-artifactory to root first to make composite action available
@@ -447,7 +441,6 @@ jobs:
     runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
     env:
       JFROG_CLI_LOG_LEVEL: DEBUG
-      GOPROXY: direct
     steps:
       # Checkout jfrog-cli-artifactory to root first to make composite action available
       - name: Checkout jfrog-cli-artifactory
@@ -505,7 +498,6 @@ jobs:
     runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
     env:
       JFROG_CLI_LOG_LEVEL: DEBUG
-      GOPROXY: direct
     steps:
       # Checkout jfrog-cli-artifactory to root first to make composite action available
       - name: Checkout jfrog-cli-artifactory
@@ -555,7 +547,6 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       JFROG_CLI_LOG_LEVEL: DEBUG
-      GOPROXY: direct
     steps:
       # Checkout jfrog-cli-artifactory to root first to make composite action available
       - name: Checkout jfrog-cli-artifactory
@@ -589,8 +580,6 @@ jobs:
           ./start.sh
         env:
           RTLIC: ${{ secrets.RTLIC }}
-          GOPROXY: direct
-
       - name: Wait for Artifactory to finish loading
         uses: nev7n/wait_for_response@v1
         with:
@@ -610,7 +599,6 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       JFROG_CLI_LOG_LEVEL: DEBUG
-      GOPROXY: direct
     steps:
       # Checkout jfrog-cli-artifactory to root first to make composite action available
       - name: Checkout jfrog-cli-artifactory
@@ -658,7 +646,6 @@ jobs:
     runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
     env:
       JFROG_CLI_LOG_LEVEL: DEBUG
-      GOPROXY: direct
     steps:
       # Checkout jfrog-cli-artifactory to root first to make composite action available
       - name: Checkout jfrog-cli-artifactory
@@ -724,7 +711,6 @@ jobs:
     runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
     env:
       JFROG_CLI_LOG_LEVEL: DEBUG
-      GOPROXY: direct
     steps:
       # Checkout jfrog-cli-artifactory to root first to make composite action available
       - name: Checkout jfrog-cli-artifactory
@@ -777,7 +763,6 @@ jobs:
     runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
     env:
       JFROG_CLI_LOG_LEVEL: DEBUG
-      GOPROXY: direct
     steps:
       # Checkout jfrog-cli-artifactory to root first to make composite action available
       - name: Checkout jfrog-cli-artifactory
