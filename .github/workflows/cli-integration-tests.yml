@@ -11,6 +11,11 @@ on:
     branches:
       - main
 
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    branches:
+      - main
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}-${{ github.ref }}
   cancel-in-progress: true
@@ -72,14 +77,15 @@ jobs:
     runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
     env:
       JFROG_CLI_LOG_LEVEL: DEBUG
-      GOPROXY: direct
     steps:
+      # Checkout jfrog-cli-artifactory to root first to make composite action available
       - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      # Use composite action to checkout all repositories
       - name: Checkout all JFrog repositories
         uses: ./.github/actions/checkout-jfrog-repos
         with:
@@ -129,14 +135,15 @@ jobs:
     runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
     env:
       JFROG_CLI_LOG_LEVEL: DEBUG
-      GOPROXY: direct
     steps:
+      # Checkout jfrog-cli-artifactory to root first to make composite action available
       - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      # Use composite action to checkout all repositories
       - name: Checkout all JFrog repositories
         uses: ./.github/actions/checkout-jfrog-repos
         with:
@@ -176,14 +183,15 @@ jobs:
     runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
     env:
       JFROG_CLI_LOG_LEVEL: DEBUG
-      GOPROXY: direct
     steps:
+      # Checkout jfrog-cli-artifactory to root first to make composite action available
       - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      # Use composite action to checkout all repositories
       - name: Checkout all JFrog repositories
         uses: ./.github/actions/checkout-jfrog-repos
         with:
@@ -252,14 +260,15 @@ jobs:
     runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
     env:
       JFROG_CLI_LOG_LEVEL: DEBUG
-      GOPROXY: direct
     steps:
+      # Checkout jfrog-cli-artifactory to root first to make composite action available
       - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      # Use composite action to checkout all repositories
       - name: Checkout all JFrog repositories
         uses: ./.github/actions/checkout-jfrog-repos
         with:
@@ -310,14 +319,15 @@ jobs:
     runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
     env:
       JFROG_CLI_LOG_LEVEL: DEBUG
-      GOPROXY: direct
     steps:
+      # Checkout jfrog-cli-artifactory to root first to make composite action available
       - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      # Use composite action to checkout all repositories
       - name: Checkout all JFrog repositories
         uses: ./.github/actions/checkout-jfrog-repos
         with:
@@ -367,15 +377,16 @@ jobs:
     runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
     env:
       JFROG_CLI_LOG_LEVEL: DEBUG
-      GOPROXY: direct
       GRADLE_OPTS: -Dorg.gradle.daemon=false
     steps:
+      # Checkout jfrog-cli-artifactory to root first to make composite action available
       - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      # Use composite action to checkout all repositories
       - name: Checkout all JFrog repositories
         uses: ./.github/actions/checkout-jfrog-repos
         with:
@@ -430,14 +441,15 @@ jobs:
     runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
     env:
       JFROG_CLI_LOG_LEVEL: DEBUG
-      GOPROXY: direct
     steps:
+      # Checkout jfrog-cli-artifactory to root first to make composite action available
       - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      # Use composite action to checkout all repositories
       - name: Checkout all JFrog repositories
         uses: ./.github/actions/checkout-jfrog-repos
         with:
@@ -486,14 +498,15 @@ jobs:
     runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
     env:
       JFROG_CLI_LOG_LEVEL: DEBUG
-      GOPROXY: direct
     steps:
+      # Checkout jfrog-cli-artifactory to root first to make composite action available
       - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      # Use composite action to checkout all repositories
       - name: Checkout all JFrog repositories
         uses: ./.github/actions/checkout-jfrog-repos
         with:
@@ -534,14 +547,15 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       JFROG_CLI_LOG_LEVEL: DEBUG
-      GOPROXY: direct
     steps:
+      # Checkout jfrog-cli-artifactory to root first to make composite action available
       - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      # Use composite action to checkout all repositories
       - name: Checkout all JFrog repositories
         uses: ./.github/actions/checkout-jfrog-repos
         with:
@@ -566,8 +580,6 @@ jobs:
           ./start.sh
         env:
           RTLIC: ${{ secrets.RTLIC }}
-          GOPROXY: direct
-
       - name: Wait for Artifactory to finish loading
         uses: nev7n/wait_for_response@v1
         with:
@@ -587,14 +599,15 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       JFROG_CLI_LOG_LEVEL: DEBUG
-      GOPROXY: direct
     steps:
+      # Checkout jfrog-cli-artifactory to root first to make composite action available
       - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      # Use composite action to checkout all repositories
       - name: Checkout all JFrog repositories
         uses: ./.github/actions/checkout-jfrog-repos
         with:
@@ -633,14 +646,15 @@ jobs:
     runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
     env:
       JFROG_CLI_LOG_LEVEL: DEBUG
-      GOPROXY: direct
     steps:
+      # Checkout jfrog-cli-artifactory to root first to make composite action available
       - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      # Use composite action to checkout all repositories
       - name: Checkout all JFrog repositories
         uses: ./.github/actions/checkout-jfrog-repos
         with:
@@ -697,14 +711,15 @@ jobs:
     runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
     env:
       JFROG_CLI_LOG_LEVEL: DEBUG
-      GOPROXY: direct
     steps:
+      # Checkout jfrog-cli-artifactory to root first to make composite action available
       - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      # Use composite action to checkout all repositories
       - name: Checkout all JFrog repositories
         uses: ./.github/actions/checkout-jfrog-repos
         with:
@@ -748,14 +763,15 @@ jobs:
     runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
     env:
       JFROG_CLI_LOG_LEVEL: DEBUG
-      GOPROXY: direct
     steps:
+      # Checkout jfrog-cli-artifactory to root first to make composite action available
       - name: Checkout jfrog-cli-artifactory
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      # Use composite action to checkout all repositories
       - name: Checkout all JFrog repositories
         uses: ./.github/actions/checkout-jfrog-repos
         with:
